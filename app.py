@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_cors import CORS
 import datetime
 import base64
@@ -14,7 +14,7 @@ if not os.path.exists('logs'):
 
 @app.route('/')
 def home():
-    return "Server is running! Use /view/test to test the experiment."
+    return redirect(url_for('view_reel', reel_id='test'))
 
 @app.route('/view/<reel_id>', methods=['GET'])
 def view_reel(reel_id):
@@ -69,5 +69,5 @@ def capture():
     return jsonify({"status": "success", "image_saved": image_filename}), 200
 
 if __name__ == '__main__':
-    print("[!] Starting Server on http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    print("[!] Starting Server on http://127.0.0.1:8080")
+    app.run(port=8080, debug=False)
